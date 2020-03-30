@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/dig/internal/digreflect"
@@ -138,6 +139,8 @@ type Container struct {
 	// Mapping from key to all the nodes that can provide a value for that
 	// key.
 	providers map[key][]*node
+
+	locker sync.Mutex
 
 	// All nodes in the container.
 	nodes []*node
@@ -273,15 +276,21 @@ func (c *Container) knownTypes() []reflect.Type {
 }
 
 func (c *Container) getValue(name string, t reflect.Type) (v reflect.Value, ok bool) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
 	v, ok = c.values[key{name: name, t: t}]
 	return
 }
 
 func (c *Container) setValue(name string, t reflect.Type, v reflect.Value) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
 	c.values[key{name: name, t: t}] = v
 }
 
 func (c *Container) getValueGroup(name string, t reflect.Type) []reflect.Value {
+	c.locker.Lock()
+	defer c.locker.Unlock()
 	items := c.groups[key{group: name, t: t}]
 	// shuffle the list so users don't rely on the ordering of grouped values
 	return shuffledCopy(c.rand, items)
